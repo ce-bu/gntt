@@ -1,0 +1,5 @@
+Some network test tools written in Go
+
+Need Go version 1.19 or later (generics support)
+
+
