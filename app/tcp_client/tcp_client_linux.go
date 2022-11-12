@@ -3,6 +3,13 @@
 
 package tcp_client
 
+import (
+	"net"
+	"syscall"
+
+	log "github.com/sirupsen/logrus"
+)
+
 func configureConn(app *App, conn *net.Conn) {
 	tcpc := (*conn).(*net.TCPConn)
 	fd, err := tcpc.File()
