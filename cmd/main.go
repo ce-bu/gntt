@@ -30,7 +30,7 @@ var tcpServerCmd = &cobra.Command{
 }
 
 var tcpServerConfig = &tcp_server.Config{
-	Address:    "localhost",
+	Address:    "",
 	Port:       58822,
 	MaxClients: 5,
 	BufferSize: 65535,
@@ -51,6 +51,9 @@ var tcpClientCmd = &cobra.Command{
 			case "num-bytes":
 				v, _ := cmd.Flags().GetInt64("num-bytes")
 				tcpClientConfig.NumBytes.Set(v)
+			case "conn-time":
+				v, _ := cmd.Flags().GetInt("conn-time")
+				tcpClientConfig.ConnTimeSec.Set(v)
 			}
 		})
 		tcp_client.New(tcpClientConfig).Run()
@@ -58,7 +61,7 @@ var tcpClientCmd = &cobra.Command{
 }
 
 var tcpClientConfig = &tcp_client.Config{
-	Address:        "localhost",
+	Address:        "",
 	Port:           58822,
 	MaxClients:     5,
 	BufferSize:     65535,
@@ -74,12 +77,13 @@ func init() {
 	tcpClientCmd.Flags().StringVarP(&tcpClientConfig.Address, "address", "a", tcpClientConfig.Address, "address")
 	tcpClientCmd.Flags().IntVarP(&tcpClientConfig.Port, "port", "p", tcpClientConfig.Port, "port")
 	tcpClientCmd.Flags().IntVarP(&tcpClientConfig.MaxClients, "max-clients", "c", tcpClientConfig.MaxClients, "max clients")
-	tcpClientCmd.Flags().IntVar(&tcpClientConfig.ConnTimeoutSec, "conn-timeout", tcpClientConfig.ConnTimeoutSec, "connection timeout")
+	tcpClientCmd.Flags().IntVar(&tcpClientConfig.ConnTimeoutSec, "conn-timeout", tcpClientConfig.ConnTimeoutSec, "connection establishment timeout")
 	tcpClientCmd.Flags().Int("mtu-discover", 1, "mtu discover")
 	tcpClientCmd.Flags().Int("num-conn", 0, "num connections")
-	tcpClientCmd.Flags().Int64("num-bytes", 0, "num bytes")
+	tcpClientCmd.Flags().Int64("num-bytes", 0, "stop connection after num-bytes sent")
+	tcpClientCmd.Flags().IntP("conn-time", "t", 0, "stop connection after conn-time seconds expired")
 
-	rootCmd.Flags().StringVar(&optLogLvl, "log", "trace", "log level")
+	rootCmd.PersistentFlags().StringVar(&optLogLvl, "log", "trace", "log level")
 	rootCmd.AddCommand(tcpServerCmd)
 	rootCmd.AddCommand(tcpClientCmd)
 }

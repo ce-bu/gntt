@@ -38,20 +38,7 @@ func New(c *Config) *App {
 func (app *App) handleConn(conn *net.Conn) {
 
 	defer (*conn).Close()
-	tcpc := (*conn).(*net.TCPConn)
-	fd, err := tcpc.File()
-	if err != nil {
-		log.Errorf("cannot get socket descriptor error=%s", err.Error())
-		return
-	}
-
-	if app.config.MtuDiscover.HasValue() {
-		err = syscall.SetsockoptInt(int(fd.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, app.config.MtuDiscover.Get())
-		if err != nil {
-			log.Errorf("cannot set IP_MTU_DISCOVER error=%s", err.Error())
-			return
-		}
-	}
+	configureConn(app, conn)
 
 	var buf []byte = make([]byte, app.config.BufferSize)
 	for {
@@ -67,6 +54,7 @@ func (app *App) handleConn(conn *net.Conn) {
 
 func (app *App) Setup() error {
 	address := fmt.Sprintf("%s:%d", app.config.Address, app.config.Port)
+	log.Infof("server listen at %s", address)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Errorf("accept error=%s", err.Error())
@@ -109,7 +97,6 @@ func (app *App) CancelAll() {
 }
 
 func (app *App) Run() {
-
 	endServer, err := gntt_worker.ServerWorker[net.Conn](app)
 	if err != nil {
 		return

@@ -25,6 +25,7 @@ type Config struct {
 	MtuDiscover    gntt_optional.Optional[int]
 	NumConnections gntt_optional.Optional[int]
 	NumBytes       gntt_optional.Optional[int64]
+	ConnTimeSec    gntt_optional.Optional[int]
 	ConnTimeoutSec int
 }
 
@@ -52,19 +53,8 @@ func (app *App) MaxClients() int {
 func (app *App) handleConn(conn *net.Conn) {
 
 	defer (*conn).Close()
-	tcpc := (*conn).(*net.TCPConn)
-	fd, err := tcpc.File()
-	if err != nil {
-		log.Errorf("cannot get socket descriptor error=%s", err.Error())
-		return
-	}
-	if app.config.MtuDiscover.HasValue() {
-		err = syscall.SetsockoptInt(int(fd.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, app.config.MtuDiscover.Get())
-		if err != nil {
-			log.Errorf("cannot set IP_MTU_DISCOVER error=%s", err.Error())
-			return
-		}
-	}
+
+	configureConn(app, conn)
 
 	var buf []byte = make([]byte, app.config.BufferSize)
 
@@ -73,6 +63,8 @@ func (app *App) handleConn(conn *net.Conn) {
 	if !unlimited {
 		total = app.config.NumBytes.Get()
 	}
+
+	connStartTime := time.Now()
 
 	for unlimited || total > 0 {
 
@@ -86,6 +78,14 @@ func (app *App) handleConn(conn *net.Conn) {
 
 		if !unlimited {
 			total = total - int64(n)
+		}
+
+		if app.config.ConnTimeSec.HasValue() {
+			delta := time.Now().Sub(connStartTime).Seconds()
+			if delta > float64(app.config.ConnTimeSec.Get()) {
+				log.Tracef("conn %s expired %f s %d", (*conn).RemoteAddr().String(), delta, app.config.ConnTimeSec.Get())
+				break
+			}
 		}
 	}
 }
