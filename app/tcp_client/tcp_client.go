@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"gntt/pkg/gntt_math"
 	"gntt/pkg/gntt_optional"
+	"gntt/pkg/gntt_utils"
 	"gntt/pkg/gntt_worker"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"syscall"
@@ -34,11 +34,15 @@ type App struct {
 	actvConn     sync.Map
 	jobsFinished chan bool
 	bytesSent    uint64
+	sampler      *gntt_utils.RateSampler
 }
 
 func New(c *Config) *App {
 	return &App{
 		config: c,
+		sampler: gntt_utils.NewSampler(100*time.Millisecond, func(rate float64) {
+			fmt.Printf("%.2f Gb/s\n", rate/(1000.0*1000.0*1000.0))
+		}),
 	}
 }
 
@@ -64,6 +68,8 @@ func (app *App) handleConn(conn *net.Conn) {
 		total = app.config.NumBytes.Get()
 	}
 
+	app.sampler.Start()
+
 	connStartTime := time.Now()
 
 	for unlimited || total > 0 {
@@ -74,7 +80,7 @@ func (app *App) handleConn(conn *net.Conn) {
 			break
 		}
 
-		atomic.AddUint64(&app.bytesSent, uint64(n))
+		app.sampler.AddSample(uint64(n))
 
 		if !unlimited {
 			total = total - int64(n)
@@ -125,36 +131,12 @@ func (app *App) Run() {
 
 	endWork := gntt_worker.ClientWorker(app)
 
-	sampler := func() chan bool {
-		stop := make(chan bool)
-		go func() {
-			pt := time.Now()
-			pb := atomic.LoadUint64(&app.bytesSent)
-			for {
-				select {
-				case <-stop:
-					goto end
-				case <-time.After(100 * time.Millisecond):
-					ct := time.Now()
-					cb := atomic.LoadUint64(&app.bytesSent)
-					rate := float64(cb-pb) / float64(ct.Sub(pt).Seconds())
-					pt = ct
-					pb = cb
-					fmt.Printf("%.2fGb\n", rate/(100.0*1000.0*1000.0))
-				}
-			}
-		end:
-			stop <- true
-		}()
-		return stop
-	}()
-
 	select {
 	case <-sigs:
 	case <-app.jobsFinished:
 	}
-	sampler <- true
-	<-sampler
+
+	app.sampler.Stop()
 	endWork <- true
 	<-endWork
 
