@@ -41,7 +41,7 @@ func New(c *Config) *App {
 	return &App{
 		config: c,
 		sampler: gntt_utils.NewSampler(100*time.Millisecond, func(rate float64) {
-			fmt.Printf("%.2f Gb/s\n", rate/(1000.0*1000.0*1000.0))
+			fmt.Printf("%.2f kb/s\n", rate/(1000.0*1000.0))
 		}),
 	}
 }
@@ -56,8 +56,6 @@ func (app *App) MaxClients() int {
 
 func (app *App) handleConn(conn *net.Conn) {
 
-	defer (*conn).Close()
-
 	configureConn(app, conn)
 
 	var buf []byte = make([]byte, app.config.BufferSize)
@@ -67,8 +65,6 @@ func (app *App) handleConn(conn *net.Conn) {
 	if !unlimited {
 		total = app.config.NumBytes.Get()
 	}
-
-	app.sampler.Start()
 
 	connStartTime := time.Now()
 
@@ -94,6 +90,8 @@ func (app *App) handleConn(conn *net.Conn) {
 			}
 		}
 	}
+
+	(*conn).Close()
 }
 
 func (app *App) Perform() {
@@ -113,7 +111,11 @@ func (app *App) Perform() {
 
 func (app *App) CancelAll() {
 	app.actvConn.Range(func(conn any, value any) bool {
-		conn.(net.Conn).Close()
+		c := conn.(*net.TCPConn)
+		log.Tracef("cancel connection %s", c.LocalAddr().String())
+		c.SetLinger(0)
+		c.CloseWrite()
+		c.CloseRead()
 		return true
 	})
 
@@ -129,6 +131,7 @@ func (app *App) Run() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	app.jobsFinished = make(chan bool)
 
+	app.sampler.Start()
 	endWork := gntt_worker.ClientWorker(app)
 
 	select {
