@@ -25,4 +25,16 @@ func configureConn(app *App, conn *net.Conn) {
 			return
 		}
 	}
+
+}
+
+func configureRawConn(app *App, fd uintptr) {
+	if app.config.TcpFastOpen.HasValue() {
+		err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 30, app.config.TcpFastOpen.Get())
+		if err != nil {
+			log.Errorf("cannot set tcp_fast_open error=%s", err.Error())
+			return
+		}
+	}
+
 }

@@ -27,6 +27,7 @@ type Config struct {
 	NumBytes       gntt_optional.Optional[int64]
 	ConnTimeSec    gntt_optional.Optional[int]
 	ConnTimeoutSec int
+	TcpFastOpen    gntt_optional.Optional[int]
 }
 
 type App struct {
@@ -98,6 +99,12 @@ func (app *App) Perform() {
 	address := fmt.Sprintf("%s:%d", app.config.Address, app.config.Port)
 	d := net.Dialer{
 		Timeout: time.Duration(app.config.ConnTimeoutSec) * time.Second,
+		Control: func(network, address string, c syscall.RawConn) error {
+			c.Control(func(fd uintptr) {
+				configureRawConn(app, fd)
+			})
+			return nil
+		},
 	}
 	newc, err := d.Dial("tcp", address)
 	if err != nil {

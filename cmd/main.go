@@ -24,6 +24,10 @@ var tcpServerCmd = &cobra.Command{
 				v, _ := cmd.Flags().GetInt("mtu-discover")
 				tcpServerConfig.MtuDiscover.Set(v)
 			}
+			if f.Name == "tcp-fastopen" {
+				v, _ := cmd.Flags().GetInt("tcp-fastopen")
+				tcpServerConfig.TcpFastOpen.Set(v)
+			}
 		})
 		tcp_server.New(tcpServerConfig).Run()
 	},
@@ -54,6 +58,9 @@ var tcpClientCmd = &cobra.Command{
 			case "conn-time":
 				v, _ := cmd.Flags().GetInt("conn-time")
 				tcpClientConfig.ConnTimeSec.Set(v)
+			case "tcp-fastopen":
+				v, _ := cmd.Flags().GetInt("tcp-fastopen")
+				tcpClientConfig.TcpFastOpen.Set(v)
 			}
 		})
 		tcp_client.New(tcpClientConfig).Run()
@@ -73,15 +80,17 @@ func init() {
 	tcpServerCmd.Flags().IntVarP(&tcpServerConfig.Port, "port", "p", tcpServerConfig.Port, "port")
 	tcpServerCmd.Flags().IntVarP(&tcpServerConfig.MaxClients, "max-clients", "c", tcpServerConfig.MaxClients, "max clients")
 	tcpServerCmd.Flags().Int("mtu-discover", 1, "mtu discover")
+	tcpServerCmd.Flags().Int("tcp-fastopen", 0, "tcp fast open(linux)")
 
 	tcpClientCmd.Flags().StringVarP(&tcpClientConfig.Address, "address", "a", tcpClientConfig.Address, "address")
 	tcpClientCmd.Flags().IntVarP(&tcpClientConfig.Port, "port", "p", tcpClientConfig.Port, "port")
 	tcpClientCmd.Flags().IntVarP(&tcpClientConfig.MaxClients, "max-clients", "c", tcpClientConfig.MaxClients, "max clients")
 	tcpClientCmd.Flags().IntVar(&tcpClientConfig.ConnTimeoutSec, "conn-timeout", tcpClientConfig.ConnTimeoutSec, "connection establishment timeout")
-	tcpClientCmd.Flags().Int("mtu-discover", 1, "mtu discover")
+	tcpClientCmd.Flags().Int("mtu-discover", 1, "mtu discover(linux)")
 	tcpClientCmd.Flags().Int("num-conn", 0, "num connections")
 	tcpClientCmd.Flags().Int64("num-bytes", 0, "stop connection after num-bytes sent")
 	tcpClientCmd.Flags().IntP("conn-time", "t", 0, "stop connection after conn-time seconds expired")
+	tcpClientCmd.Flags().Int("tcp-fastopen", 0, "tcp fast open(linux)")
 
 	rootCmd.PersistentFlags().StringVar(&optLogLvl, "log", "trace", "log level")
 	rootCmd.AddCommand(tcpServerCmd)

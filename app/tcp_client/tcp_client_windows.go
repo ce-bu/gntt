@@ -8,3 +8,6 @@ import "net"
 func configureConn(app *App, conn *net.Conn) {
 
 }
+
+func configureRawConn(app *App, fd uintptr) {
+}

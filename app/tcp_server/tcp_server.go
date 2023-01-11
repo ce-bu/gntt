@@ -21,6 +21,7 @@ type Config struct {
 	MaxClients  int
 	BufferSize  int
 	MtuDiscover gntt_optional.Optional[int]
+	TcpFastOpen gntt_optional.Optional[int]
 }
 
 type App struct {
@@ -59,6 +60,18 @@ func (app *App) Setup() error {
 	if err != nil {
 		log.Errorf("accept error=%s", err.Error())
 	} else {
+
+		if app.config.TcpFastOpen.HasValue() {
+			file, err := listener.(*net.TCPListener).File()
+			if err != nil {
+				log.Errorf("listener error=%s", err.Error())
+			}
+			err = syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_TCP, 23, app.config.TcpFastOpen.Get())
+			if err != nil {
+				log.Errorf("server tcp_fastopen=%d error=%s", app.config.TcpFastOpen.Get(), err.Error())
+			}
+		}
+
 		app.listener = listener
 	}
 	return err
